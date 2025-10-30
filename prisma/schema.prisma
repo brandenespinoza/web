@@ -1,0 +1,286 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Application user account (auth via username + password).
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique(map: "users_username_key")
+  passwordHash String
+  displayName  String?
+  bio          String?
+  isAdmin      Boolean  @default(false)
+  languageTag  String? /// RFC5646 language preference (optional).
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  ownedProjects Project[]       @relation("ProjectOwner")
+  updates       ProjectUpdate[] @relation("UpdateAuthor")
+  follows       Follow[]        @relation("UserFollows")
+  auditLogs     AuditLog[]
+  feedEvents    FeedEvent[]     @relation("FeedEventActor")
+  apiTokens     ApiToken[]
+}
+
+/// Session cookie storage for auth (HttpOnly session token).
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique(map: "sessions_token_hash_key")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// A project is a chronological story, private by default.
+model Project {
+  id           String            @id @default(uuid())
+  slug         String            @unique(map: "projects_slug_key")
+  title        String
+  summary      String?
+  visibility   ProjectVisibility @default(PRIVATE)
+  coverImageId String?           @unique
+  isDeleted    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  publishedAt  DateTime?
+
+  owner      User        @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  ownerId    String
+  coverImage MediaAsset? @relation("ProjectCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+
+  tags        ProjectTag[]
+  updates     ProjectUpdate[]
+  followers   Follow[]
+  mediaAssets MediaAsset[]
+  highlights  ProjectHighlight[]
+  feedEvents  FeedEvent[]
+}
+
+/// Tags assigned to projects (0-10 tags per project).
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique(map: "tags_name_key")
+  createdAt DateTime @default(now())
+
+  projects ProjectTag[]
+}
+
+/// Project ↔ Tag join table.
+model ProjectTag {
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId  String
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId      String
+  assignedAt DateTime @default(now())
+
+  @@id([projectId, tagId])
+}
+
+/// Block-based project update (chronological entry).
+model ProjectUpdate {
+  id        String    @id @default(uuid())
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  author    User      @relation("UpdateAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  authorId  String
+  headline  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  editedAt  DateTime?
+  isDraft   Boolean   @default(false)
+
+  blocks         UpdateBlock[]
+  mediaAssets    MediaAsset[]
+  highlightEntry ProjectHighlight?
+  feedEvents     FeedEvent[]
+}
+
+/// Individual content block composing an update.
+model UpdateBlock {
+  id        String          @id @default(uuid())
+  update    ProjectUpdate   @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  updateId  String
+  position  Int
+  type      UpdateBlockType
+  text      String?
+  data      Json?
+  createdAt DateTime        @default(now())
+
+  @@unique([updateId, position])
+}
+
+/// Highlight relation to enforce max highlight entries.
+model ProjectHighlight {
+  id        String        @id @default(uuid())
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  update    ProjectUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  updateId  String        @unique(map: "project_highlights_update_id_key")
+  createdAt DateTime      @default(now())
+
+  @@unique([projectId, updateId])
+}
+
+/// Media assets (images/videos) tied to projects/updates.
+model MediaAsset {
+  id              String                @id @default(uuid())
+  project         Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId       String?
+  update          ProjectUpdate?        @relation(fields: [updateId], references: [id], onDelete: SetNull)
+  updateId        String?
+  coverProject    Project?              @relation("ProjectCover")
+  type            MediaAssetType
+  status          MediaProcessingStatus @default(PENDING)
+  originalPath    String
+  storageBucket   String?
+  derivatives     Json?
+  posterPath      String?
+  checksum        String?
+  width           Int?
+  height          Int?
+  durationSeconds Int?
+  filesize        BigInt?
+  altText         String?
+  caption         String?
+  errorMessage    String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  jobQueueEntries MediaJob[]
+}
+
+/// Follow relation between a user and a project.
+model Follow {
+  id         String   @id @default(uuid())
+  follower   User     @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId  String
+  createdAt  DateTime @default(now())
+
+  @@unique([followerId, projectId])
+}
+
+/// Audit log entry capturing notable actions.
+model AuditLog {
+  id         String   @id @default(uuid())
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  changes    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+}
+
+/// Background job for media processing.
+model MediaJob {
+  id          String       @id @default(uuid())
+  media       MediaAsset   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  mediaId     String
+  jobType     MediaJobType
+  status      JobStatus    @default(PENDING)
+  attempts    Int          @default(0)
+  maxAttempts Int          @default(5)
+  lastError   String?
+  scheduledAt DateTime     @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+/// Simple event feed for global timeline.
+model FeedEvent {
+  id        String         @id @default(uuid())
+  type      FeedEventType
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  update    ProjectUpdate? @relation(fields: [updateId], references: [id], onDelete: SetNull)
+  updateId  String?
+  actor     User?          @relation("FeedEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorId   String?
+  payload   Json?
+  createdAt DateTime       @default(now())
+
+  @@index([type, createdAt])
+}
+
+/// API tokens for future automation (read-only).
+model ApiToken {
+  id         String    @id @default(uuid())
+  label      String
+  tokenHash  String    @unique(map: "api_tokens_token_hash_key")
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId     String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+}
+
+enum ProjectVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum UpdateBlockType {
+  PARAGRAPH
+  HEADING
+  IMAGE
+  VIDEO
+  LIST
+  QUOTE
+  CODE
+  EMBED
+}
+
+enum MediaAssetType {
+  IMAGE
+  VIDEO
+}
+
+enum MediaProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  ERROR
+}
+
+enum MediaJobType {
+  IMAGE_OPTIMIZE
+  VIDEO_TRANSCODE
+  VIDEO_POSTER
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum FeedEventType {
+  PROJECT_CREATED
+  UPDATE_PUBLISHED
+  PROJECT_VISIBILITY_CHANGED
+  PROJECT_HIGHLIGHTED
+}

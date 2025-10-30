@@ -1,65 +1,99 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+import { getSession } from "@/lib/session";
+
+export default async function HomePage() {
+  const session = await getSession();
+  const primaryCtaHref = session ? "/dashboard" : "/register";
+  const primaryCtaLabel = session ? "Go to dashboard" : "Get started";
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="min-h-screen bg-slate-950 text-white">
+      <div className="mx-auto flex max-w-6xl flex-col gap-16 px-6 pb-24 pt-28">
+        <header className="grid gap-12 lg:grid-cols-2 lg:items-center">
+          <div className="space-y-6">
+            <p className="text-sm uppercase tracking-[0.3em] text-sky-400">ProjectChron</p>
+            <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">
+              Chronicle every build with a scrubbable, cinematic timeline.
+            </h1>
+            <p className="text-lg text-slate-300">
+              Capture iterative progress with block-based updates, toggle highlights for pivotal moments, and press play to watch the story unfold.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href={primaryCtaHref}
+                className="inline-flex items-center rounded-full bg-sky-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
+              >
+                {primaryCtaLabel}
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center rounded-full border border-slate-700 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-500 hover:text-white"
+              >
+                Sign in
+              </Link>
+            </div>
+            <ul className="grid gap-3 text-sm text-slate-300">
+              <li>• Private-by-default, publish per project when you are ready.</li>
+              <li>• Local video ingest with queue processing and responsive playback.</li>
+              <li>• Highlights, Play as Story, and a global feed for followers.</li>
+            </ul>
+          </div>
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl">
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-sky-300">Timeline preview</h2>
+              <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                {["Frame & joinery", "Electronics install", "First power on", "Polish & ship"].map(
+                  (title, index) => (
+                    <div key={title} className="flex items-center gap-3">
+                      <div className="relative h-10 w-10 flex-shrink-0">
+                        <span className="absolute inset-0 rounded-full border border-slate-700 bg-slate-800/80" />
+                        <span className="absolute inset-2 rounded-full bg-sky-400/80" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{title}</p>
+                        <p className="text-xs text-slate-400">{4 + index * 3} days ago · Highlight</p>
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+                <p className="text-sm font-medium text-slate-200">Play as Story</p>
+                <div className="mt-3 flex items-center gap-3 text-sm text-slate-300">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500 text-white">▶</span>
+                  <span>Lean back and watch updates auto-advance with captions and media.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section className="grid gap-6 rounded-3xl border border-slate-800 bg-slate-900/50 p-8 md:grid-cols-3">
+          {[
+            {
+              title: "Block-based updates",
+              description:
+                "Compose paragraphs, images, video, lists, and quotes. Validate schema server-side and keep an immutable audit trail.",
+            },
+            {
+              title: "Media pipeline",
+              description:
+                "500 MB uploads, Sharp image optimization, FFmpeg transcoding, local storage or S3-compatible buckets.",
+            },
+            {
+              title: "Scrubber + Highlights",
+              description:
+                "Scrubbable timeline with hover previews, Play as Story controls, and up to five highlights per project.",
+            },
+          ].map((feature) => (
+            <div key={feature.title} className="space-y-2 rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
+              <h3 className="text-lg font-semibold text-white">{feature.title}</h3>
+              <p className="text-sm text-slate-300">{feature.description}</p>
+            </div>
+          ))}
+        </section>
+      </div>
     </div>
   );
 }
