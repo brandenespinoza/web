@@ -8,7 +8,7 @@ import { softDeleteProject, updateProject } from "@/services/project-service";
 
 interface Params {
   params: {
-    id: string;
+    projectId: string;
   };
 }
 
@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const project = await updateProject({
-    projectId: params.id,
+    projectId: params.projectId,
     actorId: user.id,
     title: parsed.data.title,
     summary: parsed.data.summary,
@@ -41,7 +41,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const user = await requireUser();
   const project = await softDeleteProject({
-    projectId: params.id,
+    projectId: params.projectId,
     actorId: user.id,
   });
 
